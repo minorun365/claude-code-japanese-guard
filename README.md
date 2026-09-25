@@ -1,0 +1,75 @@
+# claude-code-japanese-guard
+
+Claude Code の応答が、いつの間にか英語に切り替わるのを止める Stop hook です。
+
+日本語で指示していても、ツールを何度も呼ぶ長い作業のあとや、英語のツール出力を読んだ直後に、途中報告や最終報告が英語で返ってくることがあります。CLAUDE.md に「日本語で応答する」と書いても、この切り替わりは止まりませんでした。そこで、ターンの終わりに本文を機械で検査し、英語だったら日本語で書き直させる hook を作りました。
+
+## 動き
+
+1. Claude がターンを終えようとすると、Stop hook が会話の記録（transcript）を読みます
+2. 最後のユーザー発言より後に Claude が書いた本文を集め、英字と日本語の文字数を数えます
+3. 英語主体の本文があれば、終了を止めて「日本語で書き直して」と差し戻します
+4. Claude が同じターンのうちに日本語で出し直します
+
+差し戻しは1ターンに1回だけです。書き直しがまた英語でも、そこで終了させるので、差し戻しが続くことはありません。
+
+次のものは数えません。英語のコマンドや英文の下書きを見せるのは正当な使い方だからです。
+
+- コードブロック（```` ``` ````）とインラインコード
+- URL・メールアドレス・Markdown のリンク
+- 英字が25文字未満の短い本文（「OK」程度の返事）
+
+## 入れ方
+
+hook を置きます。
+
+```bash
+mkdir -p ~/.claude/hooks
+curl -fsSL https://raw.githubusercontent.com/minorun365/claude-code-japanese-guard/main/hooks/japanese-guard.py -o ~/.claude/hooks/japanese-guard.py
+chmod +x ~/.claude/hooks/japanese-guard.py
+```
+
+`~/.claude/settings.json` の `hooks` に `Stop` を足します（すでに `hooks` があるなら、その中へ `Stop` だけ足してください）。
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "~/.claude/hooks/japanese-guard.py" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Python 3 だけで動きます。追加のパッケージは要りません。
+
+## 判定の調整
+
+環境変数で閾値を変えられます。
+
+| 変数 | 既定 | 意味 |
+|---|---|---|
+| `JAPANESE_GUARD_MIN_LATIN` | `25` | 英字がこれ未満の本文は判定しない |
+| `JAPANESE_GUARD_RATIO` | `3` | 英字の数が日本語の文字数のこの倍を超えたら英語主体とみなす |
+
+## 手元の記録で試す
+
+過去のセッションの記録に当てると、最後のターンで英語主体だった本文を表示します。
+
+```bash
+python3 ~/.claude/hooks/japanese-guard.py --check ~/.claude/projects/<プロジェクト>/<セッションID>.jsonl
+```
+
+## テスト
+
+```bash
+python3 tests/test_japanese_guard.py
+```
+
+## ライセンス
+
+Apache License 2.0
