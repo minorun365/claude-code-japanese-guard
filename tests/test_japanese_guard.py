@@ -21,6 +21,10 @@ def assistant(text):
     return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": text}]}}
 
 
+def tool_use():
+    return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}}
+
+
 def run(entries, stop_hook_active=False):
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
         for e in entries:
@@ -36,8 +40,11 @@ JA = "ビルドが通り、テストもすべて成功したので、ページ�
 cases = [
     ("英語の本文は差し戻す", [user("公開して"), assistant(EN)], False, True),
     ("日本語の本文は通す", [user("公開して"), assistant(JA)], False, False),
-    ("途中の一言報告が英語でも差し戻す", [user("公開して"), assistant("Checking the build first."
-        " Then I will run the whole test suite."), tool_result(), assistant(JA)], False, True),
+    ("ツール前の途中の一言が英語でも、最終回答が日本語なら通す", [user("公開して"), assistant("Checking the build first."
+        " Then I will run the whole test suite."), tool_use(), tool_result(), assistant(JA)], False, False),
+    ("最後のツールより後の最終回答が英語なら差し戻す", [user("公開して"), assistant(JA), tool_use(), tool_result(),
+        assistant(EN)], False, True),
+    ("ツールを呼ばないターンで、英語の段落が混ざれば差し戻す", [user("公開して"), assistant(JA), assistant(EN)], False, True),
     ("コードブロックの英語は数えない", [user("手順は？"), assistant("次のコマンドを実行します。\n```bash\n"
         "npm install && npm run build && npm test -- --coverage --watchAll=false\n```")], False, False),
     ("前のターンの英語は対象外", [user("a"), assistant(EN), user("b"), assistant(JA)], False, False),

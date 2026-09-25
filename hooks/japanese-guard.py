@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Claude Code の Stop hook。ターンの本文が英語主体なら、終了させずに日本語で書き直させる。
 
-検査するのは「最後のユーザー発言より後に Claude が書いた本文すべて」（途中の一言報告も含む）。
+検査するのは、そのターンの最終回答だけ。つまり最後のツール呼び出しより後に Claude が書いた本文。
+ツールを呼ぶ前の途中の一言は、画面では実行ログの間に小さく出るだけなので対象にしない。
+ツールを1回も呼ばなかったターンは、本文すべてが最終回答になる。
 コードブロック・インラインコード・URL・メールアドレス・Markdown リンクは数えない。
 英語のコマンドや英文の下書きをコードブロックで見せるのは正当なため。
 
@@ -34,9 +36,9 @@ IGNORE = [
 REASON = (
     "このターンの本文に、英語で書いた箇所があります。\n"
     "{quoted}\n"
-    "ユーザーは日本語での応答を求めています。このターンで英語で書いた内容（途中の一言報告を含む）を、"
-    "日本語で全部書き直して出し直してください。言い訳や原因の説明は書かず、書き直した本文だけを出すこと。"
-    "以降の応答もすべて日本語で書くこと。"
+    "ユーザーは日本語での応答を求めています。上に挙げた英語の箇所だけを、日本語に書き直して出してください。"
+    "日本語で書けていた部分は、すでにユーザーに届いているので再掲しないこと。"
+    "言い訳や原因の説明は書かず、以降の応答もすべて日本語で書くこと。"
 )
 
 
@@ -72,13 +74,19 @@ def english_passages(transcript_path):
     for i, entry in enumerate(entries):
         if is_user_turn(entry):
             start = i + 1
-    hits = []
+    # 最終回答＝最後のツール呼び出しより後の本文。ツール呼び出しが出るたびに集め直す
+    final = []
     for entry in entries[start:]:
         if entry.get("type") != "assistant":
             continue
         for block in entry.get("message", {}).get("content") or []:
-            if isinstance(block, dict) and block.get("type") == "text" and is_english(block.get("text", "")):
-                hits.append(block["text"].strip().splitlines()[0][:80])
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use":
+                final = []
+            elif block.get("type") == "text":
+                final.append(block.get("text", ""))
+    hits = [text.strip().splitlines()[0][:80] for text in final if is_english(text)]
     return hits
 
 
