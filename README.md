@@ -21,29 +21,45 @@ Claude Code の応答が、いつの間にか英語に切り替わるのを止�
 
 ## 入れ方
 
-hook を置きます。
+Claude Desktop（Claude Code）に、このリポジトリの URL を渡して頼むだけです。
 
-```bash
-mkdir -p ~/.claude/hooks
-curl -fsSL https://raw.githubusercontent.com/minorun365/claude-code-japanese-guard/main/hooks/japanese-guard.py -o ~/.claude/hooks/japanese-guard.py
-chmod +x ~/.claude/hooks/japanese-guard.py
-```
+> https://github.com/minorun365/claude-code-japanese-guard これ設定しといて
 
-`~/.claude/settings.json` の `hooks` に `Stop` を足します（すでに `hooks` があるなら、その中へ `Stop` だけ足してください）。
+あとは Claude Code が下の手順で入れてくれます。
 
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "~/.claude/hooks/japanese-guard.py" }
-        ]
-      }
-    ]
-  }
-}
-```
+## Claude Code 向けの設定手順
+
+ユーザーからこのリポジトリの設定を頼まれた Claude Code は、次の手順で入れてください。CLI で自分で入れる人も、同じ手順で入れられます。
+
+1. **hook を置く。** `hooks/japanese-guard.py` を `~/.claude/hooks/japanese-guard.py` に保存し、実行権限を付ける。
+
+   ```bash
+   mkdir -p ~/.claude/hooks
+   curl -fsSL https://raw.githubusercontent.com/minorun365/claude-code-japanese-guard/main/hooks/japanese-guard.py -o ~/.claude/hooks/japanese-guard.py
+   chmod +x ~/.claude/hooks/japanese-guard.py
+   ```
+
+2. **`~/.claude/settings.json` に Stop hook を登録する。** 既存の設定は消さず、`hooks.Stop` の配列に次の1件を足す。`hooks` や `Stop` が無ければ作る。同じ `command` がすでに登録されていれば、何もしない。
+
+   ```json
+   { "hooks": [ { "type": "command", "command": "~/.claude/hooks/japanese-guard.py" } ] }
+   ```
+
+   書き換えたあと、ファイルが JSON として読めることを確かめる。
+
+   ```bash
+   python3 -c "import json,os;json.load(open(os.path.expanduser('~/.claude/settings.json')));print('OK')"
+   ```
+
+   自分の設定ファイルの書き換えが権限の都合で止められた場合は、無理に回避しない。足す内容をユーザーに示し、ユーザー自身で `settings.json` に足してもらう。
+
+3. **動くことを確かめる。** 何も渡さずに実行してエラーにならないこと（何も出力されなければ正常）を確かめる。
+
+   ```bash
+   echo '{}' | ~/.claude/hooks/japanese-guard.py && echo OK
+   ```
+
+4. **ユーザーに伝える。** 入れたことと、確実に効くのは新しく開いたセッションからであることを伝える。応答が英語になると、ターンの終わりに「日本語で書き直して」と差し戻されるようになる。
 
 Python 3 だけで動きます。追加のパッケージは要りません。
 
