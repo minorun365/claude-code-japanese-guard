@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parent.parent / "hooks" / "japanese-guard.py"
@@ -59,4 +60,15 @@ for name, entries, active, expect_block in cases:
     ok = blocked == expect_block
     failed += not ok
     print(("✓ " if ok else "✗ ") + name)
+# 最終回答が hook の起動より遅れて書き込まれても、待ってから判定する
+with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
+    for e in [user("公開して"), tool_use(), tool_result()]:
+        f.write(json.dumps(e, ensure_ascii=False) + "\n")
+late = json.dumps(assistant(EN), ensure_ascii=False) + "\n"
+threading.Timer(0.5, lambda: open(f.name, "a", encoding="utf-8").write(late)).start()
+out = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"transcript_path": f.name}),
+                     capture_output=True, text=True, check=True)
+ok = bool(out.stdout.strip()) and json.loads(out.stdout).get("decision") == "block"
+failed += not ok
+print(("✓ " if ok else "✗ ") + "最終回答の書き込みが遅れても、英語なら差し戻す")
 sys.exit(1 if failed else 0)

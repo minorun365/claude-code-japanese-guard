@@ -17,11 +17,14 @@ import json
 import os
 import re
 import sys
+import time
 
 # 英字がこれ未満の本文は判定しない（「OK」「Done」程度の短い返事は見逃す）
 MIN_LATIN = int(os.environ.get("JAPANESE_GUARD_MIN_LATIN", "25"))
 # 英字の数が日本語の文字数のこの倍を超えたら、英語主体とみなす
 RATIO = float(os.environ.get("JAPANESE_GUARD_RATIO", "3"))
+# 最終回答が transcript へ書き込まれるのを待つ上限（秒）
+WAIT_SECONDS = float(os.environ.get("JAPANESE_GUARD_WAIT", "3"))
 
 JA = re.compile(r"[ぁ-んァ-ヶ一-龥]")
 LATIN = re.compile(r"[A-Za-z]")
@@ -62,7 +65,7 @@ def is_user_turn(entry):
     return False
 
 
-def english_passages(transcript_path):
+def read_entries(transcript_path):
     entries = []
     with open(transcript_path, encoding="utf-8", errors="ignore") as f:
         for line in f:
@@ -70,6 +73,38 @@ def english_passages(transcript_path):
                 entries.append(json.loads(line))
             except ValueError:
                 continue
+    return entries
+
+
+def turn_ended_in_text(entries):
+    """このターンの最新の assistant エントリが、本文で終わっているか"""
+    for entry in reversed(entries):
+        if is_user_turn(entry):
+            return False
+        if entry.get("type") == "assistant":
+            content = entry.get("message", {}).get("content") or []
+            last = next((c for c in reversed(content) if isinstance(c, dict)), None)
+            return bool(last) and last.get("type") == "text"
+        if entry.get("type") == "user":  # ツール結果が最後＝最終回答がまだ書き込まれていない
+            return False
+    return False
+
+
+def wait_for_final(transcript_path, timeout=WAIT_SECONDS):
+    """Stop hook は、最終回答が transcript へ書き込まれる前に呼ばれることがある。
+    そのまま読むと最終回答が見えず、英語でも素通りする。最終回答が現れるまで待つ。
+    ツールを呼ばずに終わったターンは最初から本文で終わっているので、待たずに進む。"""
+    deadline = time.time() + timeout
+    entries = read_entries(transcript_path)
+    while not turn_ended_in_text(entries) and time.time() < deadline:
+        time.sleep(0.1)
+        entries = read_entries(transcript_path)
+    return entries
+
+
+def english_passages(transcript_path, entries=None):
+    if entries is None:
+        entries = read_entries(transcript_path)
     start = 0
     for i, entry in enumerate(entries):
         if is_user_turn(entry):
@@ -102,7 +137,7 @@ def main():
     if not path:
         return
     try:
-        hits = english_passages(path)
+        hits = english_passages(path, wait_for_final(path))
     except OSError:
         return
     if hits:

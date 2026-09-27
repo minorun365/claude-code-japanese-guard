@@ -73,6 +73,7 @@ Python 3 だけで動きます。追加のパッケージは要りません。
 |---|---|---|
 | `JAPANESE_GUARD_MIN_LATIN` | `25` | 英字がこれ未満の本文は判定しない |
 | `JAPANESE_GUARD_RATIO` | `3` | 英字の数が日本語の文字数のこの倍を超えたら英語主体とみなす |
+| `JAPANESE_GUARD_WAIT` | `3` | 最終回答が transcript へ書き込まれるのを待つ上限（秒）。Stop hook は書き込みより先に呼ばれることがあるため |
 
 ## 手元の記録で試す
 
