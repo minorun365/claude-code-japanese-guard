@@ -6,7 +6,7 @@ Claude Code の応答が、いつの間にか英語に切り替わるのを止�
 
 ## 動き
 
-1. Claude がターンを終えようとすると、Stop hook が会話の記録（transcript）を読みます
+1. Claude がターンを終えようとすると、Stop hook が最後の応答の本文（hook の入力 `last_assistant_message`）と会話の記録（transcript）を読みます
 2. そのターンの最終回答（最後のツール呼び出しより後に Claude が書いた本文）を取り出し、英字と日本語の文字数を数えます
 3. 英語主体の本文があれば、終了を止めて「日本語で書き直して」と差し戻します
 4. Claude が同じターンのうちに日本語で出し直します
@@ -73,7 +73,7 @@ Python 3 だけで動きます。追加のパッケージは要りません。
 |---|---|---|
 | `JAPANESE_GUARD_MIN_LATIN` | `25` | 英字がこれ未満の本文は判定しない |
 | `JAPANESE_GUARD_RATIO` | `3` | 英字の数が日本語の文字数のこの倍を超えたら英語主体とみなす |
-| `JAPANESE_GUARD_WAIT` | `3` | 最終回答が transcript へ書き込まれるのを待つ上限（秒）。Stop hook は書き込みより先に呼ばれることがあるため |
+| `JAPANESE_GUARD_WAIT` | `3` | 最終回答が transcript へ書き込まれるのを待つ上限（秒）。Stop hook は書き込みより先に呼ばれることがあるため。`last_assistant_message` が英語なら待たずに差し戻す |
 
 ## 手元の記録で試す
 

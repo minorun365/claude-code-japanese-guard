@@ -26,11 +26,14 @@ def tool_use():
     return {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}}
 
 
-def run(entries, stop_hook_active=False):
+def run(entries, stop_hook_active=False, last_message=None):
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
         for e in entries:
             f.write(json.dumps(e, ensure_ascii=False) + "\n")
-    payload = json.dumps({"transcript_path": f.name, "stop_hook_active": stop_hook_active})
+    data = {"transcript_path": f.name, "stop_hook_active": stop_hook_active}
+    if last_message is not None:
+        data["last_assistant_message"] = last_message
+    payload = json.dumps(data)
     out = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, check=True)
     return json.loads(out.stdout) if out.stdout.strip() else None
 
@@ -71,4 +74,19 @@ out = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"transcript_
 ok = bool(out.stdout.strip()) and json.loads(out.stdout).get("decision") == "block"
 failed += not ok
 print(("✓ " if ok else "✗ ") + "最終回答の書き込みが遅れても、英語なら差し戻す")
+# last_assistant_message だけに最終回答がある（transcript にまだ書き込まれていない）とき
+import time
+t0 = time.time()
+r = run([user("公開して"), tool_use(), tool_result()], last_message=EN)
+ok = bool(r and r.get("decision") == "block") and time.time() - t0 < 2
+failed += not ok
+print(("✓ " if ok else "✗ ") + "last_assistant_message が英語なら、transcript を待たずに差し戻す")
+r = run([user("公開して"), assistant(JA)], last_message=JA)
+ok = r is None
+failed += not ok
+print(("✓ " if ok else "✗ ") + "last_assistant_message が日本語なら通す")
+r = run([user("公開して"), assistant(EN), assistant(JA)], last_message=JA)
+ok = bool(r and r.get("decision") == "block")
+failed += not ok
+print(("✓ " if ok else "✗ ") + "last_assistant_message が日本語でも、分かれた前半が英語なら transcript 側で差し戻す")
 sys.exit(1 if failed else 0)
