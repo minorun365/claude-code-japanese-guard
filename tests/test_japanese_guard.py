@@ -61,8 +61,9 @@ def run(entries, stop_hook_active=False, last_message=None):
 
 EN = "The build finished successfully and all tests passed, so I will publish the page now."
 JA = "ビルドが通り、テストもすべて成功したので、ページを公開します。"
-EN_MID = ("I have finished reading the configuration files. Next I will update the build script, "
-          "run the tests again, and report the results once everything passes.")
+EN_MID = ("I have finished reading the configuration files.\n"
+          "Next I will update the build script, run the tests again, and report the results once everything passes.")
+EN_ONE_LINE = "Register the page in the index after the existing entry, then publish it and check the build log."
 JA_MID = "設定ファイルを読み終えました。次はビルドスクリプトを直して、テストを流し直します。"
 
 cases = [
@@ -70,6 +71,8 @@ cases = [
     ("日本語の本文は通す", [user("公開して"), assistant(JA)], False, False),
     ("ツール前の途中の一言が英語でも、最終回答が日本語なら通す", [user("公開して"), assistant("Checking the build first."
         " Then I will run the whole test suite."), tool_use(), tool_result(), assistant(JA)], False, False),
+    ("ツール前の1行の前置きが英字60字を超えても、最終回答が日本語なら通す", [user("公開して"), assistant(EN_ONE_LINE),
+        tool_use(), tool_result(), assistant(JA)], False, False),
     ("最後のツールより後の最終回答が英語なら差し戻す", [user("公開して"), assistant(JA), tool_use(), tool_result(),
         assistant(EN)], False, True),
     ("ツールを呼ばないターンで、英語の段落が混ざれば差し戻す", [user("公開して"), assistant(JA), assistant(EN)], False, True),
