@@ -1,4 +1,4 @@
-# claude-code-japanese-guard
+# 日本語でおｋ
 
 Claude Code の応答が、いつの間にか英語に切り替わるのを止める Stop hook です。
 
