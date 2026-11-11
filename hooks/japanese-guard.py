@@ -45,9 +45,9 @@ LATIN = re.compile(r"[A-Za-z]")
 IGNORE = [
     re.compile(r"```.*?```", re.S),
     re.compile(r"`[^`\n]*`"),
+    re.compile(r"\[[^\]]*\]\([^)]*\)"),
     re.compile(r"https?://\S+"),
     re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"),
-    re.compile(r"\[[^\]]*\]\([^)]*\)"),
 ]
 
 REASON = (

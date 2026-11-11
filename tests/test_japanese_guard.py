@@ -78,6 +78,8 @@ cases = [
     ("ツールを呼ばないターンで、英語の段落が混ざれば差し戻す", [user("公開して"), assistant(JA), assistant(EN)], False, True),
     ("コードブロックの英語は数えない", [user("手順は？"), assistant("次のコマンドを実行します。\n```bash\n"
         "npm install && npm run build && npm test -- --coverage --watchAll=false\n```")], False, False),
+    ("Markdown のリンクは表示する文字も数えない", [user("資料は？"),
+        assistant("参照: [Apple Developer Documentation](https://developer.apple.com/documentation/)")], False, False),
     ("前のターンの英語は対象外", [user("a"), assistant(EN), user("b"), assistant(JA)], False, False),
     ("2回目は通す（無限ループ防止）", [user("公開して"), assistant(EN)], True, False),
     ("短い英語は見逃す", [user("いい？"), assistant("OK, done.")], False, False),
