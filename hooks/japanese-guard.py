@@ -16,6 +16,9 @@ wrap_up は PreToolUse hook としても同じ判定で止める。箱が英語�
 見逃さないため。入るのは最後の応答1件だけなので、transcript の判定も残して両方で見る。
 コードブロック・インラインコード・URL・メールアドレス・Markdown リンクは数えない。
 英語のコマンドや英文の下書きをコードブロックで見せるのは正当なため。
+最終回答が JSON の値そのもの（前後のコードフェンスは許す）なら判定しない。
+スクリプトが読む出力なので、差し戻すと説明文が混ざって JSON として読めなくなる。
+環境変数 JAPANESE_GUARD_DISABLE=1 のときは何もしない。claude -p で人が読まない出力を作るとき向け。
 
 差し戻しは1ターンにつき1回だけ（stop_hook_active が立っていたら通す）。
 書き直しが再び英語になっても、そこで止めて無限に続かないようにする。
@@ -39,6 +42,8 @@ MIN_LATIN_MID_LONG = int(os.environ.get("JAPANESE_GUARD_MIN_LATIN_MID_LONG", "25
 RATIO = float(os.environ.get("JAPANESE_GUARD_RATIO", "3"))
 # 最終回答が transcript へ書き込まれるのを待つ上限（秒）
 WAIT_SECONDS = float(os.environ.get("JAPANESE_GUARD_WAIT", "3"))
+# 1 なら何もしない（claude -p などで、人が読まない出力を作るとき）
+DISABLED = os.environ.get("JAPANESE_GUARD_DISABLE") == "1"
 
 JA = re.compile(r"[ぁ-んァ-ヶ一-龥]")
 LATIN = re.compile(r"[A-Za-z]")
@@ -70,6 +75,18 @@ def is_english(text, min_latin=MIN_LATIN):
     latin = len(LATIN.findall(text))
     ja = len(JA.findall(text))
     return latin >= min_latin and latin > ja * RATIO
+
+
+def looks_like_json(text):
+    """最終回答が JSON の値そのもの（前後のコードフェンスは許す）なら True"""
+    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+    if not t or t[0] not in "[{":
+        return False
+    try:
+        json.loads(t)
+        return True
+    except ValueError:
+        return False
 
 
 def is_mid_report_english(text):
@@ -194,6 +211,8 @@ def main():
         hits = english_passages(sys.argv[2])
         print("\n".join(hits) if hits else "英語主体の本文はありません")
         return
+    if DISABLED:
+        return
     data = json.load(sys.stdin)
     if data.get("hook_event_name") == "PreToolUse":
         if is_wrap_up(data.get("tool_name")) and is_english(wrap_up_text(data.get("tool_input"))):
@@ -204,6 +223,10 @@ def main():
             }}, ensure_ascii=False))
         return
     if data.get("stop_hook_active"):
+        return
+    # 最終回答が JSON だけなら、スクリプトが読む出力として扱う。差し戻すと「英語の箇所を
+    # 日本語に直す」説明文が加わり、JSON として読めなくなる
+    if looks_like_json(data.get("last_assistant_message") or ""):
         return
     # 最終回答の本文は hook の入力 last_assistant_message にも入っている。transcript の書き込みを
     # 待たずに判定でき、書き込みが遅れても見逃さない。入るのは最後の応答1件だけなので、

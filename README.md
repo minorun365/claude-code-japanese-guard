@@ -29,6 +29,8 @@ Claude Code の応答が、いつの間にか英語に切り替わるのを止�
 - URL・メールアドレス・Markdown のリンク
 - 英字が25文字未満の短い本文（「OK」程度の返事）
 
+最終回答が JSON だけ（` ```json ` のコードフェンスで囲んだものを含む）のときも差し戻しません。スクリプトが読む出力に説明文が加わると、JSON として読めなくなるためです。
+
 ## 入れ方
 
 Claude Desktop（Claude Code）に、このリポジトリの URL を渡して頼むだけです。
@@ -94,6 +96,7 @@ Python 3 だけで動きます。追加のパッケージは要りません。
 | `JAPANESE_GUARD_MIN_LATIN_MID_LONG` | `250` | 1行の途中報告は、英字がこれ以上ある長い段落のときだけ判定する |
 | `JAPANESE_GUARD_RATIO` | `3` | 英字の数が日本語の文字数のこの倍を超えたら英語主体とみなす |
 | `JAPANESE_GUARD_WAIT` | `3` | 最終回答が transcript へ書き込まれるのを待つ上限（秒）。Stop hook は書き込みより先に呼ばれることがあるため。`last_assistant_message` が英語なら待たずに差し戻す |
+| `JAPANESE_GUARD_DISABLE` | なし | `1` にすると何もしない。`claude -p` で人が読まない出力を作るスクリプトから呼ぶとき向け |
 
 ## 手元の記録で試す
 

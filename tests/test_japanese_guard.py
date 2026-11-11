@@ -1,6 +1,7 @@
 """python3 tests/test_japanese_guard.py で実行する"""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,28 @@ r = run([user("公開して"), assistant(EN), assistant(JA)], last_message=JA)
 ok = bool(r and r.get("decision") == "block")
 failed += not ok
 print(("✓ " if ok else "✗ ") + "last_assistant_message が日本語でも、分かれた前半が英語なら transcript 側で差し戻す")
+# 最終回答が JSON だけなら、機械が読む出力として通す
+JSON_OUT = json.dumps({"status": "ok", "items": [{"title": "Weekly build report", "summary": EN}]})
+for name, msg, expect_block in [
+    ("最終回答が JSON だけなら通す", JSON_OUT, False),
+    ("コードフェンスで囲んだ JSON も通す", "```json\n" + JSON_OUT + "\n```", False),
+    ("JSON の前に英語の説明が付いていれば差し戻す", EN + "\n" + JSON_OUT, True),
+    ("{ で始まっても JSON として読めなければ差し戻す", "{" + EN, True),
+]:
+    r = run([user("一覧を JSON で"), tool_use(), tool_result()], last_message=msg)
+    ok = bool(r and r.get("decision") == "block") == expect_block
+    failed += not ok
+    print(("✓ " if ok else "✗ ") + name)
+# JAPANESE_GUARD_DISABLE=1 なら何もしない
+with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
+    for e in [user("公開して"), assistant(EN)]:
+        f.write(json.dumps(e, ensure_ascii=False) + "\n")
+env = {**os.environ, "JAPANESE_GUARD_DISABLE": "1"}
+out = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"transcript_path": f.name,
+                     "last_assistant_message": EN}), capture_output=True, text=True, check=True, env=env)
+ok = not out.stdout.strip()
+failed += not ok
+print(("✓ " if ok else "✗ ") + "JAPANESE_GUARD_DISABLE=1 なら英語でも通す")
 # PreToolUse：次の一手の箱は、画面に出る前に止める
 checks = [
     ("PreToolUse：英語の箱は deny する", "mcp__ccd_turn__wrap_up",
